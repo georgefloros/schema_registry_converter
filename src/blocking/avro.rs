@@ -25,13 +25,6 @@
 use std::io::Cursor;
 use std::sync::Arc;
 
-use apache_avro::types::Value;
-use apache_avro::{from_avro_datum, Schema};
-use dashmap::mapref::entry::Entry;
-use dashmap::DashMap;
-use serde::ser::Serialize;
-use serde_json::Value as JsonValue;
-
 use crate::avro_common::{
     get_name, item_to_bytes, replace_reference, values_to_bytes, AvroSchema, DecodeResult,
     DecodeResultWithSchema,
@@ -44,6 +37,14 @@ use crate::schema_registry_common::{
     get_bytes_result, BytesResult, RegisteredReference, RegisteredSchema, SchemaType,
     SubjectNameStrategy,
 };
+use apache_avro::types::Value;
+use apache_avro::{from_avro_datum, Schema};
+use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
+use serde::ser::Serialize;
+use serde_json::Value as JsonValue;
+pub static SCHEMA_CACHE: Lazy<DashMap<String, RegisteredSchema>> = Lazy::new(|| DashMap::new());
 
 /// A decoder used to transform bytes to a Value object
 ///
@@ -482,7 +483,7 @@ impl AvroEncoder {
         subject_name_strategy: &SubjectNameStrategy,
     ) -> Result<Arc<AvroSchema>, SRCError> {
         let sr_settings = &self.sr_settings;
-        match self.cache.entry(key) {
+        match self.cache.entry(key.clone()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
                 let v = match get_schema_by_subject(sr_settings, subject_name_strategy) {
@@ -499,18 +500,28 @@ fn add_references(
     sr_settings: &SrSettings,
     json_value: JsonValue,
     references: &[RegisteredReference],
+    replaced_values: &DashMap<String, String>,
 ) -> Result<JsonValue, SRCError> {
     let mut new_value = json_value;
     for r in references.iter() {
-        let registered_schema = match get_referenced_schema(sr_settings, r) {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(SRCError::non_retryable_with_cause(
-                    e,
-                    &format!("problem with reference {:?}", r),
-                ));
+        let key = format!("{}:{}", r.subject, r.version);
+        let registered_schema = match SCHEMA_CACHE.entry(key.clone()) {
+            Entry::Occupied(e) => {
+                println!("cache hit {:?}", key.clone());
+                println!("=====================");
+                e.get().clone()
             }
+            Entry::Vacant(e) => match get_referenced_schema(sr_settings, r) {
+                Ok(v) => e.insert(v).value().clone(),
+                Err(e) => {
+                    return Err(SRCError::non_retryable_with_cause(
+                        e,
+                        &format!("problem with reference {:?}", r),
+                    ));
+                }
+            },
         };
+
         let child: JsonValue = match serde_json::from_str(&registered_schema.schema) {
             Ok(v) => v,
             Err(e) => {
@@ -520,8 +531,13 @@ fn add_references(
                 ));
             }
         };
-        new_value = replace_reference(new_value, child);
-        new_value = match add_references(sr_settings, new_value, &registered_schema.references) {
+        new_value = replace_reference(new_value, child, replaced_values);
+        new_value = match add_references(
+            sr_settings,
+            new_value,
+            &registered_schema.references,
+            replaced_values,
+        ) {
             Ok(v) => v,
             Err(e) => return Err(e),
         }
@@ -543,7 +559,12 @@ fn to_avro_schema(
         }
     }
     let main_schema = match serde_json::from_str(&registered_schema.schema) {
-        Ok(v) => match add_references(sr_settings, v, registered_schema.references.as_slice()) {
+        Ok(v) => match add_references(
+            sr_settings,
+            v,
+            registered_schema.references.as_slice(),
+            &DashMap::new(),
+        ) {
             Ok(u) => u,
             Err(e) => return Err(e),
         },

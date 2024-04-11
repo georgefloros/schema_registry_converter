@@ -35,11 +35,31 @@ fn might_replace(
     val: value::Value,
     child: &value::Value,
     replace_values: &DashMap<String, String>,
+    replaced_values: &DashMap<String, String>,
 ) -> value::Value {
     match val {
-        value::Value::Object(v) => replace_in_map(v, child, replace_values),
-        value::Value::Array(v) => replace_in_array(&v, child, replace_values),
-        value::Value::String(s) if replace_values.contains_key(&*s) => child.clone(),
+        value::Value::Object(v) => replace_in_map(v, child, replace_values, replaced_values),
+        value::Value::Array(v) => replace_in_array(&v, child, replace_values, replaced_values),
+        value::Value::String(ref s) if replace_values.contains_key(&*s) => {
+            let v = s.to_string();
+            let name = v.split('.').last().unwrap();
+            let child_name = child["name"].as_str().unwrap();
+            let namespace = child["namespace"].as_str().unwrap();
+            if child_name.eq(name) {
+                match replaced_values.get(child_name) {
+                    Some(u) => return value::Value::String(u.to_string()),
+                    None => {
+                        replaced_values.insert(
+                            child_name.to_string(),
+                            format!("{}.{}", namespace.to_string(), child_name.to_string()),
+                        );
+                        child.clone()
+                    }
+                }
+            } else {
+                val
+            }
+        }
         p => p,
     }
 }
@@ -48,11 +68,12 @@ fn replace_in_array(
     parent_array: &[value::Value],
     child: &value::Value,
     replace_values: &DashMap<String, String>,
+    replaced_values: &DashMap<String, String>,
 ) -> value::Value {
     value::Value::Array(
         parent_array
             .iter()
-            .map(|v| might_replace(v.clone(), child, replace_values))
+            .map(|v| might_replace(v.clone(), child, replace_values, replaced_values))
             .collect(),
     )
 }
@@ -61,6 +82,7 @@ fn replace_in_map(
     parent_map: Map<String, value::Value>,
     child: &value::Value,
     replace_values: &DashMap<String, String>,
+    replaced_values: &DashMap<String, String>,
 ) -> value::Value {
     value::Value::Object(
         parent_map
@@ -68,14 +90,18 @@ fn replace_in_map(
             .map(|e| {
                 (
                     e.0.clone(),
-                    might_replace(e.1.clone(), child, replace_values),
+                    might_replace(e.1.clone(), child, replace_values, replaced_values),
                 )
             })
             .collect(),
     )
 }
 
-pub(crate) fn replace_reference(parent: value::Value, child: value::Value) -> value::Value {
+pub(crate) fn replace_reference(
+    parent: value::Value,
+    child: value::Value,
+    replaced_values: &DashMap<String, String>,
+) -> value::Value {
     let (name, namespace) = match &child {
         value::Value::Object(v) => (v["name"].as_str(), v["namespace"].as_str()),
         _ => return parent,
@@ -84,11 +110,12 @@ pub(crate) fn replace_reference(parent: value::Value, child: value::Value) -> va
     match name {
         Some(v) => match namespace {
             Some(u) => {
-                let key = format!(".{}.{}", u, v);
+                let key = format!("{}.{}", u, v);
                 replace_values.insert(key.clone(), key);
-                if parent["namespace"].as_str() == namespace {
-                    replace_values.insert(String::from(v), String::from(v));
-                }
+                replace_values.insert(String::from(v), String::from(v));
+                // if parent["namespace"].as_str() == namespace {
+                //     replace_values.insert(String::from(v), String::from(v));
+                // }
             }
             None => {
                 replace_values.insert(String::from(v), String::from(v));
@@ -97,8 +124,8 @@ pub(crate) fn replace_reference(parent: value::Value, child: value::Value) -> va
         None => return parent,
     };
     match parent {
-        value::Value::Object(v) => replace_in_map(v, &child, &replace_values),
-        value::Value::Array(v) => replace_in_array(&v, &child, &replace_values),
+        value::Value::Object(v) => replace_in_map(v, &child, &replace_values, replaced_values),
+        value::Value::Array(v) => replace_in_array(&v, &child, &replace_values, replaced_values),
         p => p,
     }
 }

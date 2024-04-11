@@ -691,7 +691,6 @@ mod tests {
     fn display_encode() {
         let sr_settings = SrSettings::new(String::from("http://127.0.0.1:1234"));
         let encoder = JsonEncoder::new(sr_settings);
-        println!("{:?}", encoder);
         assert!(format!("{:?}", encoder).starts_with("JsonEncoder { sr_settings: SrSettings { urls: [\"http://127.0.0.1:1234\"], client: Client { accepts: Accepts"))
     }
 
@@ -699,7 +698,6 @@ mod tests {
     fn display_decode() {
         let sr_settings = SrSettings::new(String::from("http://127.0.0.1:1234"));
         let decoder = JsonDecoder::new(sr_settings);
-        println!("{:?}", decoder);
         assert!(
                    format!("{:?}", decoder).starts_with("JsonDecoder { sr_settings: SrSettings { urls: [\"http://127.0.0.1:1234\"], client: Client { accepts: Accepts")
         )
