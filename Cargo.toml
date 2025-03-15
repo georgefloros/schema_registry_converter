@@ -32,7 +32,7 @@ version = "^1.4"
 version = "^5.5"
 
 [dependencies.reqwest]
-version = "^0.12"
+version = "0.12.9"
 default-features = false
 features = ["json"]
 
@@ -44,8 +44,8 @@ features = ["derive"]
 version = "^1.0"
 
 [dependencies.apache-avro]
-git = "https://github.com/georgefloros/avro"
-branch = "decimal"
+git = "https://github.com/georgefloros/avro-rs"
+branch = "main"
 optional = true
 
 [dependencies.bytes]
