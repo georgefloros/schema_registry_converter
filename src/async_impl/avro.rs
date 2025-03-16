@@ -605,7 +605,14 @@ async fn to_avro_schema(
     }
     let main_schema = match serde_json::from_str(&registered_schema.schema) {
         Ok(v) => {
-            match add_references(sr_settings, v, registered_schema.references.as_slice()).await {
+            match add_references(
+                sr_settings,
+                v,
+                registered_schema.references.as_slice(),
+                &DashMap::new(),
+            )
+            .await
+            {
                 Ok(u) => u,
                 Err(e) => return Err(e),
             }
@@ -637,6 +644,7 @@ fn add_references<'a>(
     sr_settings: &'a SrSettings,
     json_value: value::Value,
     references: &'a [RegisteredReference],
+    replaced_values: &'a DashMap<String, String>,
 ) -> BoxFuture<'a, Result<value::Value, SRCError>> {
     async move {
         let mut new_value = json_value;
@@ -659,12 +667,18 @@ fn add_references<'a>(
                     ));
                 }
             };
-            new_value = replace_reference(new_value, child);
-            new_value =
-                match add_references(sr_settings, new_value, &registered_schema.references).await {
-                    Ok(v) => v,
-                    Err(e) => return Err(e),
-                }
+            new_value = replace_reference(new_value, child, replaced_values);
+            new_value = match add_references(
+                sr_settings,
+                new_value,
+                &registered_schema.references,
+                replaced_values,
+            )
+            .await
+            {
+                Ok(v) => v,
+                Err(e) => return Err(e),
+            }
         }
         Ok(new_value)
     }

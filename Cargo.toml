@@ -47,7 +47,8 @@ features = ["derive"]
 version = "^1.0"
 
 [dependencies.apache-avro]
-version = "^0.17"
+git = "https://github.com/georgefloros/avro-rs"
+branch = "decimal-v0.18.0"
 optional = true
 
 [dependencies.bytes]
@@ -77,6 +78,10 @@ optional = true
 [dependencies.tokio]
 version = "^1.40"
 features = ["macros"]
+optional = true
+
+[dependencies.base64]
+version = "^0.22"
 optional = true
 
 [dependencies.valico]

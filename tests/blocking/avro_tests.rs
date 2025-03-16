@@ -1,12 +1,17 @@
 extern crate schema_registry_converter;
-
 use crate::blocking::avro_consumer::{consume_avro, DeserializedAvroRecord};
 use crate::blocking::kafka_producer::get_producer;
 use apache_avro::types::Value;
+
 use rand::Rng;
+use schema_registry_converter::blocking::schema_registry::SrSettings;
+use schema_registry_converter::blocking::{
+    avro::AvroEncoder, schema_registry::get_schema_by_subject,
+};
 use schema_registry_converter::schema_registry_common::{
     SchemaType, SubjectNameStrategy, SuppliedSchema,
 };
+use serde_json::json;
 
 fn get_schema_registry_url() -> String {
     String::from("http://localhost:8081")
@@ -213,4 +218,47 @@ fn test7_test_avro_from_java_test_app() {
         false,
         test,
     )
+}
+#[test]
+fn test_br() {
+    // let _v = match get_schema_by_subject(
+    //     &SrSettings::new(String::from("http://localhost:8081")),
+    //     &key_strategy,
+    // ) {
+    //     Ok(registered_schema) => registered_schema,
+    //     Err(e) => panic!("Failed to get schema: {:?}", e),
+    // };
+    // // println!("registered_schema = {:?}", _v);
+    // println!("Start testBR iterations");
+    let encoder = AvroEncoder::new(SrSettings::new(String::from("http://localhost:8081")));
+
+    // for i in 0..1 {
+    // println!("Running testBR iteration = {:?}", i);
+    let event = json!({"status":"SUCCESS","requestDto":{"paymentMethodDto":"CC_TEMP_TOKEN","paymentType":"TOPUP","paymentToken":"81994313-1b11-44ca-8ead-1858b4601943","walletTransactions":[{"currency":"EUR","amount":"1","transactionType":"AMOUNT","reservationId":null,"referenceNumber":"711000000033067347","data":"{\"transactionId\":\"711000000033067347\",\"paymentMethod\":\"CC_TEMP_TOKEN\",\"paymentToken\":\"81994313-1b11-44ca-8ead-1858b4601943\",\"customerId\":\"ID-1741\"}"}],"sessionToken":"4a6b8c5e-bd7e-4200-8ece-8230f71909f3","currency":"EUR","amount":100.01,"ipAddress":"127.0.0.1","accountId":"ID-1361","customerId":"ID-1741","cardTokenDetailsDto":null,"externalMPIDto":{"eci":"5","cavv":"ak5uWXJmRXhZV2pqa00wVkJCWjQ=","dsTransID":"163d96f9-7572-4df5-a3eb-098cb55bdcab","challengePreference":"None","exemptionRequestReason":"None"},"rememberCard":true},"responseDto":{"paymentMethodDto":"CC_TEMP_TOKEN","paymentType":"TOPUP","paymentToken":"81994313-1b11-44ca-8ead-1858b4601943","sessionToken":"4a6b8c5e-bd7e-4200-8ece-8230f71909f3","status":"SUCCESS","transactionStatus":"APPROVED","transactionType":"Sale","transactionId":"711000000033067347","internalRequestId":"947203978","customData":"","errCode":0,"reason":"","merchantId":"1721538546134299870","merchantSiteId":"244288","version":"1.0","clientRequestId":"ID-1741","orderId":"425988788","gwErrorCode":0,"gwExtendedErrorCode":0,"issuerDeclineCode":"","issuerDeclineReason":"","externalTransactionId":"","authCode":"111177","externalSchemeTransactionId":"","merchantAdviceCode":""},"problemDetailsDto":null});
+
+    let key_strategy = SubjectNameStrategy::RecordNameStrategy(String::from(
+        "eu.qualco.kite.avro.wallet.events.VPOSActionStatusEvent",
+    ));
+
+    let _bytes = match encoder.encode_struct(event, &key_strategy) {
+        Ok(v) => v,
+        Err(e) => {
+            panic!("Failed to encode struct: {:?}", e);
+        }
+    };
+
+    let event_c = json!({"data":{"step":"CUSTOMER","additionalContacts":["sss.doe@example2.com","+306990230113"],"birthPlace":"Athens","bornOn":1710427852606_i64,"contactAddress":{"city":"Athens","country":"GR","id":"test","postalCode":"12505","region":"karditsa","street":"Street 21","streetNumber":"21"},"documents":[{"expiresOn":1710427852606_i64,"id":" ","issuedOn":1710427852606_i64,"issuer":"Papagou P.D.","issuingCountry":"GR","number":"LR066069","type":"IDENTITY_CARD"},{"expiresOn":1710427852606_i64,"id":" ","issuedOn":1710427852606_i64,"issuer":"Papagou P.D.","issuingCountry":"GR","number":"PASTEST7","type":"PASSPORT"}],"email":"sss.doe@example.com","fatherName":"Jdack","fatherNameLatin":"Jadck","firstName":"sss","firstNameLatin":"sss","gender":"MALE","lastName":"Doe","lastNameLatin":"Doe","mobilePhoneNumber":"+306971234123","motherName":"Jane","motherNameLatin":"Jane","residenceAddress":{"city":"Athens","country":"GR","id":" ","postalCode":"12345","region":"Papagou","street":"Street 23","streetNumber":"23"},"tin":"999405119","settings":[{"category":"SEARCH_TERM","setting":"EMAIL","value":"\"true\""}],"processInstanceId":"string","clientReferenceId":"clientTest"}});
+
+    let key_strategy_c = SubjectNameStrategy::RecordNameStrategy(String::from(
+        "eu.qualco.kite.avro.customer.events.CreateCustomerEvent",
+    ));
+
+    let _bytes_c = match encoder.encode_struct(event_c, &key_strategy_c) {
+        Ok(v) => v,
+        Err(e) => {
+            panic!("Failed to encode struct: {:?}", e);
+        }
+    };
+    // }
+    assert_eq!(2 + 2, 4);
 }

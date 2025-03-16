@@ -21,6 +21,8 @@
 //! automatically does retries.
 //!
 //! [avro-rs]: https://crates.io/crates/avro-rs
+#![recursion_limit = "256"]
+
 #[cfg(feature = "futures")]
 pub mod async_impl;
 #[cfg(feature = "avro")]
