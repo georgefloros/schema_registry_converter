@@ -41,7 +41,6 @@ use apache_avro::types::Value;
 use apache_avro::{from_avro_datum, Schema};
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
-use once_cell::sync::Lazy;
 use serde::ser::Serialize;
 use serde_json::Value as JsonValue;
 pub static SCHEMA_CACHE: Lazy<DashMap<String, RegisteredSchema>> = Lazy::new(|| DashMap::new());
