@@ -46,14 +46,15 @@ features = ["derive"]
 [dependencies.serde_json]
 version = "^1.0"
 
-# [dependencies.apache-avro]
-# git = "https://github.com/georgefloros/avro-rs"
-# branch = "decimal-v0.18.0"
-# optional = true
-
 [dependencies.apache-avro]
-path = "../avro-rs/avro"
+git = "https://github.com/georgefloros/avro-rs"
+branch = "decimal-v0.18.0"
+rev = "eb4dbad607fc204edd86679efd8990768c928c76"
 optional = true
+
+# [dependencies.apache-avro]
+# path = "../avro-rs/avro"
+# optional = true
 
 
 [dependencies.bytes]
